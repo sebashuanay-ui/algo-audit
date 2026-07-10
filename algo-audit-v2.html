@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ALGO-AUDIT Pro — Simulador de Rendimiento Algorítmico</title>
+  <meta name="description" content="Audita el potencial viral de tu contenido. Con cuenta, historial y plan Pro." />
+
+  <!-- Tailwind CSS vía CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Supabase JS (solo se activa si configuras tus claves abajo) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Tipografías -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['"Space Grotesk"', 'sans-serif'],
+            body: ['Inter', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            void: '#0a0a0c',
+            abyss: '#121218',
+            volt: '#a78bfa',
+            cyber: '#5eead4',
+            amberglow: '#fbbf24',
+          },
+          keyframes: {
+            floatY:   { '0%,100%': { transform: 'translateY(0px)' }, '50%': { transform: 'translateY(-8px)' } },
+            scanline: { '0%': { top: '-10%' }, '100%': { top: '110%' } },
+            shimmer:  { '0%': { backgroundPosition: '-200% center' }, '100%': { backgroundPosition: '200% center' } },
+            pulseGlow:{ '0%,100%': { opacity: '0.35' }, '50%': { opacity: '0.8' } },
+            spinSlow: { to: { transform: 'rotate(360deg)' } },
+          },
+          animation: {
+            floatY: 'floatY 7s ease-in-out infinite',
+            scanline: 'scanline 1.4s linear infinite',
+            shimmer: 'shimmer 3.5s linear infinite',
+            pulseGlow: 'pulseGlow 2.6s ease-in-out infinite',
+            spinSlow: 'spinSlow 9s linear infinite',
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    body {
+      background: radial-gradient(ellipse 120% 80% at 50% -10%, #121218 0%, #0a0a0c 60%, #08080a 100%);
+      min-height: 100vh;
+      font-family: 'Inter', sans-serif;
+      color: #e7e7ee;
+      overflow-x: hidden;
+    }
+    .orb { position: fixed; border-radius: 9999px; filter: blur(110px); pointer-events: none; z-index: 0; }
+
+    .glass {
+      background: linear-gradient(160deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 55%, rgba(0,0,0,0.25) 100%);
+      backdrop-filter: blur(28px) saturate(140%);
+      -webkit-backdrop-filter: blur(28px) saturate(140%);
+      border: 1px solid rgba(255,255,255,0.10);
+      box-shadow:
+        0 30px 60px -20px rgba(0,0,0,0.75),
+        0 12px 24px -12px rgba(0,0,0,0.6),
+        inset 0 1px 0 rgba(255,255,255,0.12),
+        inset 0 -20px 40px -30px rgba(167,139,250,0.18);
+      transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .glass:hover {
+      border-color: rgba(167,139,250,0.28);
+      box-shadow:
+        0 40px 80px -24px rgba(0,0,0,0.8),
+        0 0 60px -18px rgba(167,139,250,0.25),
+        inset 0 1px 0 rgba(255,255,255,0.16),
+        inset 0 -20px 40px -30px rgba(94,234,212,0.14);
+    }
+
+    .glass-input {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: all 0.5s ease-out;
+    }
+    .glass-input:focus {
+      border-color: rgba(167,139,250,0.5);
+      box-shadow: 0 0 24px -6px rgba(167,139,250,0.5);
+      outline: none;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 6px; border-radius: 9999px;
+      background: linear-gradient(90deg, rgba(167,139,250,0.85) var(--fill, 50%), rgba(255,255,255,0.08) var(--fill, 50%));
+      outline: none; cursor: pointer;
+      transition: box-shadow 0.4s ease-out;
+    }
+    input[type="range"]:hover { box-shadow: 0 0 18px -4px rgba(167,139,250,0.55); }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 20px; height: 20px; border-radius: 9999px;
+      background: rgba(255,255,255,0.92); border: 1px solid rgba(255,255,255,0.35);
+      box-shadow: 0 0 14px rgba(167,139,250,0.85), 0 4px 10px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.9);
+      transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); box-shadow: 0 0 24px rgba(167,139,250,1), 0 4px 12px rgba(0,0,0,0.6); }
+    input[type="range"]::-moz-range-thumb {
+      width: 20px; height: 20px; border-radius: 9999px;
+      background: rgba(255,255,255,0.92); border: 1px solid rgba(255,255,255,0.35);
+      box-shadow: 0 0 14px rgba(167,139,250,0.85), 0 4px 10px rgba(0,0,0,0.5);
+    }
+
+    .platform-chip { transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+    .platform-chip.active {
+      border-color: rgba(94,234,212,0.5);
+      background: linear-gradient(160deg, rgba(94,234,212,0.10), rgba(255,255,255,0.03));
+      box-shadow: 0 0 26px -8px rgba(94,234,212,0.55), inset 0 1px 0 rgba(255,255,255,0.15);
+      color: #d9fff6;
+    }
+
+    .tab-btn { transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+    .tab-btn.active {
+      background: linear-gradient(160deg, rgba(167,139,250,0.14), rgba(255,255,255,0.03));
+      border-color: rgba(167,139,250,0.4);
+      color: #fff;
+      box-shadow: 0 0 22px -8px rgba(167,139,250,0.5);
+    }
+
+    .premium-shine {
+      background-image: linear-gradient(110deg, transparent 30%, rgba(251,191,36,0.22) 46%, rgba(255,255,255,0.28) 50%, rgba(167,139,250,0.22) 54%, transparent 70%);
+      background-size: 200% 100%;
+    }
+
+    .score-gradient {
+      background: linear-gradient(120deg, #c4b5fd 0%, #a78bfa 40%, #5eead4 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+
+    .factor-bar { transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1); }
+    #gaugeArc { transition: stroke-dashoffset 1.6s cubic-bezier(0.22, 1, 0.36, 1); }
+
+    .scan-beam {
+      position: absolute; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(94,234,212,0.9), transparent);
+      box-shadow: 0 0 20px 2px rgba(94,234,212,0.5);
+    }
+
+    .fade-in-up { animation: fadeInUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+
+    .pro-badge {
+      background: linear-gradient(120deg, rgba(251,191,36,0.25), rgba(167,139,250,0.25));
+      border: 1px solid rgba(251,191,36,0.4);
+      box-shadow: 0 0 16px -4px rgba(251,191,36,0.5);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.15s !important; }
+    }
+    :focus-visible { outline: 2px solid rgba(167,139,250,0.8); outline-offset: 3px; border-radius: 8px; }
+  </style>
+</head>
+
+<body class="font-body antialiased relative">
+
+  <!-- Orbes ambientales -->
+  <div class="orb w-[520px] h-[520px] bg-volt/20 -top-40 -left-40 animate-pulseGlow"></div>
+  <div class="orb w-[420px] h-[420px] bg-cyber/10 bottom-0 -right-32 animate-pulseGlow" style="animation-delay: 1.3s;"></div>
+
+  <!-- ============================================================ -->
+  <!-- VISTA: AUTENTICACIÓN                                          -->
+  <!-- ============================================================ -->
+  <main id="authView" class="relative z-10 max-w-md mx-auto px-5 py-16 md:py-24 hidden">
+    <header class="text-center mb-10 fade-in-up">
+      <h1 class="font-display text-4xl md:text-5xl font-bold tracking-tight text-white drop-shadow-[0_0_30px_rgba(167,139,250,0.35)]">
+        ALGO<span class="score-gradient">-AUDIT</span>
+      </h1>
+      <p class="mt-3 text-white/50 text-sm">Tu cuenta guarda cada auditoría. Entra o crea una en segundos.</p>
+    </header>
+
+    <section class="glass rounded-3xl p-6 md:p-8 fade-in-up" style="animation-delay: 0.1s;">
+      <!-- Tabs -->
+      <div class="grid grid-cols-2 gap-2 mb-7">
+        <button type="button" id="tabLogin" class="tab-btn active glass rounded-xl py-2.5 text-sm font-display font-medium text-white/60">Iniciar sesión</button>
+        <button type="button" id="tabRegister" class="tab-btn glass rounded-xl py-2.5 text-sm font-display font-medium text-white/60">Crear cuenta</button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label for="authEmail" class="block text-xs font-mono text-white/50 uppercase tracking-widest mb-2">Correo</label>
+          <input type="email" id="authEmail" autocomplete="email" placeholder="tu@correo.com"
+                 class="glass-input w-full rounded-xl px-4 py-3 text-white placeholder-white/25 text-sm" />
+        </div>
+        <div>
+          <label for="authPassword" class="block text-xs font-mono text-white/50 uppercase tracking-widest mb-2">Contraseña</label>
+          <input type="password" id="authPassword" autocomplete="current-password" placeholder="Mínimo 6 caracteres"
+                 class="glass-input w-full rounded-xl px-4 py-3 text-white placeholder-white/25 text-sm" />
+        </div>
+      </div>
+
+      <p id="authError" class="hidden text-xs text-volt mt-4 font-mono"></p>
+      <p id="authInfo" class="hidden text-xs text-cyber mt-4 font-mono"></p>
+
+      <button type="button" id="authSubmit"
+              class="mt-7 w-full font-display font-semibold text-base text-void rounded-2xl py-3.5 bg-gradient-to-r from-volt via-[#c4b5fd] to-cyber shadow-[0_0_40px_-10px_rgba(167,139,250,0.7)] hover:shadow-[0_0_60px_-8px_rgba(94,234,212,0.8)] hover:scale-[1.015] active:scale-[0.99] transition-all duration-500 ease-out">
+        Entrar
+      </button>
+
+      <p id="modeBadge" class="text-center text-[10px] font-mono text-white/25 mt-5"></p>
+    </section>
+  </main>
+
+  <!-- ============================================================ -->
+  <!-- VISTA: APLICACIÓN                                             -->
+  <!-- ============================================================ -->
+  <main id="appView" class="relative z-10 max-w-2xl mx-auto px-5 py-8 md:py-12 hidden">
+
+    <!-- Barra superior -->
+    <header class="glass rounded-2xl px-5 py-3.5 mb-8 flex items-center justify-between gap-3 fade-in-up">
+      <h1 class="font-display text-lg font-bold text-white">ALGO<span class="score-gradient">-AUDIT</span></h1>
+      <div class="flex items-center gap-3">
+        <span id="planBadge" class="hidden pro-badge rounded-full px-3 py-1 text-[10px] font-mono font-semibold text-amberglow uppercase tracking-widest">Pro</span>
+        <span id="userEmail" class="text-white/40 text-xs font-mono hidden sm:inline truncate max-w-[140px]"></span>
+        <button type="button" id="logoutBtn" class="glass rounded-xl px-3.5 py-1.5 text-xs font-display text-white/60 hover:text-white hover:border-volt/40 transition-all duration-500">Salir</button>
+      </div>
+    </header>
+
+    <!-- Tabs Auditar / Historial -->
+    <nav class="grid grid-cols-2 gap-3 mb-8 fade-in-up">
+      <button type="button" id="tabAudit" class="tab-btn active glass rounded-2xl py-3 text-sm font-display font-medium text-white/60">⚡ Auditar</button>
+      <button type="button" id="tabHistory" class="tab-btn glass rounded-2xl py-3 text-sm font-display font-medium text-white/60">📊 Historial</button>
+    </nav>
+
+    <!-- ================= TAB: AUDITAR ================= -->
+    <div id="auditTab">
+
+      <!-- Contador de uso plan gratis -->
+      <div id="usageBar" class="glass rounded-2xl px-5 py-3 mb-6 flex items-center justify-between">
+        <p class="text-xs font-mono text-white/50">Auditorías gratis hoy: <span id="usageCount" class="text-cyber font-semibold">0 / 3</span></p>
+        <button type="button" id="goProSmall" class="text-xs font-display font-semibold text-amberglow hover:drop-shadow-[0_0_10px_rgba(251,191,36,0.8)] transition-all duration-300">Pasar a Pro →</button>
+      </div>
+
+      <section class="glass rounded-3xl p-6 md:p-8 mb-8 animate-floatY">
+        <label for="hookInput" class="block font-display text-sm font-semibold tracking-wide text-white/80 mb-3">Tu gancho o título</label>
+        <textarea id="hookInput" rows="2" maxlength="180"
+                  placeholder="Ej: Nadie te dijo esto sobre el algoritmo de TikTok…"
+                  class="glass-input w-full rounded-2xl px-4 py-3.5 text-white placeholder-white/25 text-base resize-none"></textarea>
+        <p id="hookError" class="hidden text-xs text-volt mt-2 font-mono">Escribe tu gancho para iniciar la auditoría.</p>
+
+        <p class="font-display text-sm font-semibold tracking-wide text-white/80 mt-7 mb-3">Plataforma</p>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="platformGroup" role="radiogroup" aria-label="Selecciona plataforma">
+          <button type="button" data-platform="tiktok" class="platform-chip active glass rounded-2xl py-3 px-2 text-sm font-medium text-white/70" role="radio" aria-checked="true">TikTok</button>
+          <button type="button" data-platform="shorts" class="platform-chip glass rounded-2xl py-3 px-2 text-sm font-medium text-white/70" role="radio" aria-checked="false">Shorts</button>
+          <button type="button" data-platform="reels"  class="platform-chip glass rounded-2xl py-3 px-2 text-sm font-medium text-white/70" role="radio" aria-checked="false">Reels</button>
+          <button type="button" data-platform="x"      class="platform-chip glass rounded-2xl py-3 px-2 text-sm font-medium text-white/70" role="radio" aria-checked="false">X</button>
+        </div>
+
+        <div class="mt-8 space-y-7">
+          <div>
+            <div class="flex justify-between items-baseline mb-3">
+              <label for="sliderHook" class="font-display text-sm font-semibold text-white/80">Fuerza del gancho</label>
+              <span id="valHook" class="font-mono text-sm text-volt">70</span>
+            </div>
+            <input type="range" id="sliderHook" min="1" max="100" value="70" aria-label="Fuerza del gancho" />
+          </div>
+          <div>
+            <div class="flex justify-between items-baseline mb-3">
+              <label for="sliderCuriosity" class="font-display text-sm font-semibold text-white/80">Nivel de curiosidad</label>
+              <span id="valCuriosity" class="font-mono text-sm text-volt">65</span>
+            </div>
+            <input type="range" id="sliderCuriosity" min="1" max="100" value="65" aria-label="Nivel de curiosidad" />
+          </div>
+          <div>
+            <div class="flex justify-between items-baseline mb-3">
+              <label for="sliderValue" class="font-display text-sm font-semibold text-white/80">Valor práctico</label>
+              <span id="valValue" class="font-mono text-sm text-volt">60</span>
+            </div>
+            <input type="range" id="sliderValue" min="1" max="100" value="60" aria-label="Valor práctico" />
+          </div>
+        </div>
+
+        <button id="analyzeBtn" type="button"
+                class="mt-9 w-full font-display font-semibold text-base text-void rounded-2xl py-4 bg-gradient-to-r from-volt via-[#c4b5fd] to-cyber shadow-[0_0_40px_-10px_rgba(167,139,250,0.7)] hover:shadow-[0_0_60px_-8px_rgba(94,234,212,0.8)] hover:scale-[1.015] active:scale-[0.99] transition-all duration-500 ease-out">
+          Ejecutar auditoría
+        </button>
+      </section>
+
+      <!-- Overlay de análisis -->
+      <section id="analysisPanel" class="hidden glass rounded-3xl p-8 mb-8 relative overflow-hidden">
+        <div class="scan-beam animate-scanline"></div>
+        <div class="flex items-center gap-4 mb-6">
+          <svg class="w-8 h-8 animate-spinSlow" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+            <circle cx="20" cy="20" r="16" stroke="rgba(255,255,255,0.08)" stroke-width="3"/>
+            <path d="M36 20a16 16 0 0 0-16-16" stroke="#a78bfa" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          <p class="font-display font-semibold text-white/90 text-lg">Auditando señales del algoritmo…</p>
+        </div>
+        <ul class="space-y-3 font-mono text-sm" id="analysisSteps">
+          <li class="text-white/30" data-step>▸ Tokenizando estructura del gancho</li>
+          <li class="text-white/30" data-step>▸ Midiendo densidad de curiosidad</li>
+          <li class="text-white/30" data-step>▸ Comparando contra patrones virales de la plataforma</li>
+          <li class="text-white/30" data-step>▸ Calculando Viral Potential Index</li>
+        </ul>
+      </section>
+
+      <!-- Resultado -->
+      <section id="resultPanel" class="hidden">
+        <div class="glass rounded-3xl p-6 md:p-10 mb-6 animate-floatY relative overflow-hidden">
+          <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent"></div>
+          <p class="font-mono text-xs tracking-[0.3em] text-cyber/80 uppercase text-center mb-6">Viral Potential Index</p>
+
+          <div class="relative w-56 h-56 mx-auto mb-2">
+            <svg viewBox="0 0 200 200" class="w-full h-full -rotate-90">
+              <defs>
+                <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#a78bfa"/>
+                  <stop offset="100%" stop-color="#5eead4"/>
+                </linearGradient>
+                <filter id="gaugeGlow" x="-40%" y="-40%" width="180%" height="180%">
+                  <feGaussianBlur stdDeviation="6" result="blur"/>
+                  <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+              </defs>
+              <circle cx="100" cy="100" r="84" stroke="rgba(255,255,255,0.06)" stroke-width="12" fill="none"/>
+              <circle id="gaugeArc" cx="100" cy="100" r="84" stroke="url(#gaugeGradient)" stroke-width="12" fill="none"
+                      stroke-linecap="round" filter="url(#gaugeGlow)"
+                      stroke-dasharray="527.8" stroke-dashoffset="527.8"/>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span id="scoreValue" class="font-display font-bold text-6xl score-gradient drop-shadow-[0_0_25px_rgba(167,139,250,0.5)]">0%</span>
+              <span id="scoreVerdict" class="font-mono text-xs text-white/50 mt-2 tracking-widest uppercase"></span>
+            </div>
+          </div>
+
+          <div class="glass rounded-2xl px-6 py-4 text-center mb-8">
+            <p class="text-white/40 text-xs font-mono uppercase tracking-widest mb-1">Rango estimado de visualizaciones</p>
+            <p id="viewsRange" class="font-display font-semibold text-2xl text-white">—</p>
+            <p id="platformLabel" class="text-cyber/70 text-xs font-mono mt-1"></p>
+          </div>
+
+          <div class="space-y-4 mb-8">
+            <div>
+              <div class="flex justify-between text-xs font-mono text-white/50 mb-1.5"><span>Fuerza del gancho</span><span id="barHookVal">0</span></div>
+              <div class="h-2 rounded-full bg-white/5 overflow-hidden">
+                <div id="barHook" class="factor-bar h-full rounded-full bg-gradient-to-r from-volt to-[#c4b5fd] shadow-[0_0_12px_rgba(167,139,250,0.6)]" style="width:0%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs font-mono text-white/50 mb-1.5"><span>Nivel de curiosidad</span><span id="barCuriosityVal">0</span></div>
+              <div class="h-2 rounded-full bg-white/5 overflow-hidden">
+                <div id="barCuriosity" class="factor-bar h-full rounded-full bg-gradient-to-r from-[#8b5cf6] to-volt shadow-[0_0_12px_rgba(167,139,250,0.6)]" style="width:0%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs font-mono text-white/50 mb-1.5"><span>Valor práctico</span><span id="barValueVal">0</span></div>
+              <div class="h-2 rounded-full bg-white/5 overflow-hidden">
+                <div id="barValue" class="factor-bar h-full rounded-full bg-gradient-to-r from-cyber/70 to-cyber shadow-[0_0_12px_rgba(94,234,212,0.6)]" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+
+          <button id="copyBtn" type="button"
+                  class="w-full glass rounded-2xl py-3.5 font-display font-medium text-white/80 hover:text-white hover:border-cyber/40 transition-all duration-500 ease-out">
+            Copiar resultado para compartir
+          </button>
+          <p id="copyFeedback" class="hidden text-center text-cyber text-xs font-mono mt-3">✓ Copiado — pégalo en tu historia o post</p>
+        </div>
+
+        <!-- Banner premium -->
+        <a id="premiumBanner" href="#" target="_blank" rel="noopener noreferrer"
+           class="block glass rounded-3xl p-6 md:p-8 relative overflow-hidden group hover:scale-[1.015] transition-all duration-500 ease-out"
+           style="border-color: rgba(251,191,36,0.25);">
+          <div class="absolute inset-0 premium-shine animate-shimmer pointer-events-none"></div>
+          <div class="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-amberglow/15 blur-3xl group-hover:bg-amberglow/25 transition-all duration-500"></div>
+          <div class="relative flex flex-col md:flex-row items-start md:items-center gap-5">
+            <div class="shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-amberglow/30 to-volt/30 border border-amberglow/40 flex items-center justify-center shadow-[0_0_30px_-6px_rgba(251,191,36,0.6)]">
+              <svg class="w-7 h-7 text-amberglow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <p class="font-mono text-[10px] tracking-[0.3em] text-amberglow/90 uppercase mb-1">Desbloquea el nivel Pro</p>
+              <h2 class="font-display font-bold text-xl text-white">ALGO-AUDIT Pro + The Hook Blueprint</h2>
+              <p class="text-white/50 text-sm mt-1">Auditorías ilimitadas + las 50 estructuras de gancho que dominan el For You.</p>
+            </div>
+            <div class="shrink-0 font-display font-bold text-void bg-gradient-to-r from-amberglow to-[#fde68a] rounded-xl px-6 py-3 shadow-[0_0_35px_-8px_rgba(251,191,36,0.9)] group-hover:shadow-[0_0_50px_-6px_rgba(251,191,36,1)] transition-all duration-500">
+              $4.99
+            </div>
+          </div>
+        </a>
+      </section>
+    </div>
+
+    <!-- ================= TAB: HISTORIAL ================= -->
+    <div id="historyTab" class="hidden">
+      <div id="historyEmpty" class="glass rounded-3xl p-10 text-center">
+        <p class="text-4xl mb-4">🛰️</p>
+        <p class="font-display font-semibold text-white/80 text-lg mb-2">Aún no hay auditorías</p>
+        <p class="text-white/40 text-sm">Ejecuta tu primera auditoría y aparecerá aquí, guardada en tu cuenta.</p>
+      </div>
+      <div id="historyList" class="space-y-4"></div>
+    </div>
+
+    <!-- ================= PAYWALL (límite alcanzado) ================= -->
+    <div id="paywallModal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-5 bg-black/70 backdrop-blur-sm">
+      <div class="glass rounded-3xl p-8 max-w-md w-full relative overflow-hidden text-center" style="border-color: rgba(251,191,36,0.3);">
+        <div class="absolute inset-0 premium-shine animate-shimmer pointer-events-none"></div>
+        <p class="text-4xl mb-4">🔒</p>
+        <h2 class="font-display font-bold text-2xl text-white mb-2">Alcanzaste tu límite gratis de hoy</h2>
+        <p class="text-white/50 text-sm mb-7">El plan Pro te da auditorías ilimitadas, historial completo y el pack The Hook Blueprint con 50 ganchos virales listos para usar.</p>
+        <a id="paywallCTA" href="#" target="_blank" rel="noopener noreferrer"
+           class="block w-full font-display font-bold text-void rounded-2xl py-4 bg-gradient-to-r from-amberglow to-[#fde68a] shadow-[0_0_40px_-8px_rgba(251,191,36,0.9)] hover:scale-[1.02] transition-all duration-500 mb-3">
+          Desbloquear Pro — $4.99
+        </a>
+        <button type="button" id="paywallClose" class="text-white/40 text-xs font-mono hover:text-white/70 transition-colors duration-300">Volver mañana</button>
+        <button type="button" id="activateLicense" class="block mx-auto mt-4 text-cyber/70 text-xs font-mono hover:text-cyber transition-colors duration-300">¿Ya compraste? Activa tu licencia</button>
+      </div>
+    </div>
+
+    <footer class="text-center text-white/20 text-xs font-mono mt-14">
+      ALGO-AUDIT · Simulación estimada, no garantía de resultados · Hecho para creadores
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      /* ════════════════════════════════════════════════════════════
+         CONFIGURACIÓN — edita solo esta sección
+         ════════════════════════════════════════════════════════════
+         1) MODO LOCAL (por defecto): funciona sin configurar nada.
+            Las cuentas y el historial se guardan en el navegador
+            del usuario (localStorage). Ideal para validar la idea.
+         2) MODO SUPABASE (recomendado para vender): crea un proyecto
+            gratis en supabase.com, pega tu URL y anon key abajo, y
+            ejecuta el SQL que te pasé en el chat. Las cuentas y el
+            historial quedan en una base de datos real.
+      */
+      const CONFIG = {
+        SUPABASE_URL: 'PEGA_AQUI_TU_SUPABASE_URL',        // ej: https://xxxx.supabase.co
+        SUPABASE_ANON_KEY: 'PEGA_AQUI_TU_ANON_KEY',
+        STRIPE_PAYMENT_LINK: 'https://tu-enlace-de-pago.com/algo-audit-pro',
+        FREE_DAILY_LIMIT: 3,
+        // Solo para MODO LOCAL: clave que envías al comprador tras el pago
+        LOCAL_LICENSE_KEY: 'HOOK-BLUEPRINT-2026',
+      };
+
+      const USE_SUPABASE = CONFIG.SUPABASE_URL.startsWith('https://');
+      const sb = USE_SUPABASE
+        ? window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY)
+        : null;
+
+      /* ================= Constantes del motor ================= */
+      const PLATFORMS = {
+        tiktok: { label: 'TikTok',          reach: 1.00 },
+        shorts: { label: 'YouTube Shorts',  reach: 0.85 },
+        reels:  { label: 'Instagram Reels', reach: 0.90 },
+        x:      { label: 'X (Twitter)',     reach: 0.45 },
+      };
+      const POWER_WORDS = [
+        'nadie', 'secreto', 'error', 'gratis', 'nunca', 'siempre', 'evita',
+        'truco', 'antes', 'deja', 'por qué', 'cómo', 'esto', 'real', 'verdad',
+        'prohibido', 'urgente', 'nuevo', 'fácil', 'rápido', 'dinero', 'viral',
+      ];
+      const CIRCUMFERENCE = 2 * Math.PI * 84;
+
+      /* ================= Estado ================= */
+      let currentUser = null;   // { id, email, isPro }
+      let selectedPlatform = 'tiktok';
+      let isAnalyzing = false;
+      let authMode = 'login';   // 'login' | 'register'
+      let history = [];
+
+      /* ================= Referencias DOM ================= */
+      const $ = (id) => document.getElementById(id);
+      const authView = $('authView'), appView = $('appView');
+      const authEmail = $('authEmail'), authPassword = $('authPassword');
+      const authError = $('authError'), authInfo = $('authInfo'), authSubmit = $('authSubmit');
+      const tabLogin = $('tabLogin'), tabRegister = $('tabRegister');
+      const userEmail = $('userEmail'), planBadge = $('planBadge'), logoutBtn = $('logoutBtn');
+      const tabAudit = $('tabAudit'), tabHistory = $('tabHistory');
+      const auditTab = $('auditTab'), historyTab = $('historyTab');
+      const usageCount = $('usageCount'), usageBar = $('usageBar');
+      const hookInput = $('hookInput'), hookError = $('hookError');
+      const analyzeBtn = $('analyzeBtn');
+      const analysisPanel = $('analysisPanel'), resultPanel = $('resultPanel');
+      const gaugeArc = $('gaugeArc'), scoreValue = $('scoreValue'), scoreVerdict = $('scoreVerdict');
+      const viewsRange = $('viewsRange'), platformLabel = $('platformLabel');
+      const copyBtn = $('copyBtn'), copyFeedback = $('copyFeedback');
+      const historyList = $('historyList'), historyEmpty = $('historyEmpty');
+      const paywallModal = $('paywallModal'), paywallClose = $('paywallClose');
+      const steps = document.querySelectorAll('[data-step]');
+      const sliders = {
+        hook:      { input: $('sliderHook'),      out: $('valHook') },
+        curiosity: { input: $('sliderCuriosity'), out: $('valCuriosity') },
+        value:     { input: $('sliderValue'),     out: $('valValue') },
+      };
+
+      /* Enlaces de pago */
+      $('premiumBanner').href = CONFIG.STRIPE_PAYMENT_LINK;
+      $('paywallCTA').href = CONFIG.STRIPE_PAYMENT_LINK;
+      $('modeBadge').textContent = USE_SUPABASE
+        ? 'Cuentas seguras · Supabase'
+        : 'Modo local · las cuentas viven en este navegador';
+
+      /* ════════════════════════════════════════════════════════════
+         AUTENTICACIÓN
+         ════════════════════════════════════════════════════════════ */
+
+      async function sha256(text) {
+        const data = new TextEncoder().encode(text);
+        const hash = await crypto.subtle.digest('SHA-256', data);
+        return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, '0')).join('');
+      }
+
+      /* ---- Modo local (localStorage) ---- */
+      const LS_USERS = 'aa_users';
+      const LS_SESSION = 'aa_session';
+
+      function localGetUsers() {
+        try { return JSON.parse(localStorage.getItem(LS_USERS)) || {}; }
+        catch (_) { return {}; }
+      }
+      function localSaveUsers(users) { localStorage.setItem(LS_USERS, JSON.stringify(users)); }
+
+      async function localRegister(email, password) {
+        const users = localGetUsers();
+        if (users[email]) throw new Error('Ya existe una cuenta con ese correo.');
+        users[email] = { passHash: await sha256(password), isPro: false, created: Date.now() };
+        localSaveUsers(users);
+        return localLogin(email, password);
+      }
+      async function localLogin(email, password) {
+        const users = localGetUsers();
+        const u = users[email];
+        if (!u || u.passHash !== await sha256(password)) throw new Error('Correo o contraseña incorrectos.');
+        localStorage.setItem(LS_SESSION, email);
+        return { id: email, email, isPro: !!u.isPro };
+      }
+      function localRestoreSession() {
+        const email = localStorage.getItem(LS_SESSION);
+        if (!email) return null;
+        const u = localGetUsers()[email];
+        return u ? { id: email, email, isPro: !!u.isPro } : null;
+      }
+      function localLogout() { localStorage.removeItem(LS_SESSION); }
+      function localSetPro(email) {
+        const users = localGetUsers();
+        if (users[email]) { users[email].isPro = true; localSaveUsers(users); }
+      }
+
+      /* ---- Modo Supabase ---- */
+      async function sbAuth(email, password, register) {
+        const fn = register
+          ? sb.auth.signUp({ email, password })
+          : sb.auth.signInWithPassword({ email, password });
+        const { data, error } = await fn;
+        if (error) throw new Error(error.message);
+        if (register && !data.session) {
+          throw Object.assign(new Error('Revisa tu correo para confirmar la cuenta y luego inicia sesión.'), { info: true });
+        }
+        return sbBuildUser(data.user);
+      }
+      async function sbBuildUser(user) {
+        let isPro = false;
+        try {
+          const { data } = await sb.from('profiles').select('is_pro').eq('id', user.id).maybeSingle();
+          isPro = !!(data && data.is_pro);
+        } catch (_) { /* perfil ausente → free */ }
+        return { id: user.id, email: user.email, isPro };
+      }
+      async function sbRestoreSession() {
+        const { data } = await sb.auth.getSession();
+        return data.session ? sbBuildUser(data.session.user) : null;
+      }
+
+      /* ---- UI de auth ---- */
+      function setAuthMode(mode) {
+        authMode = mode;
+        tabLogin.classList.toggle('active', mode === 'login');
+        tabRegister.classList.toggle('active', mode === 'register');
+        authSubmit.textContent = mode === 'login' ? 'Entrar' : 'Crear cuenta';
+        authError.classList.add('hidden');
+        authInfo.classList.add('hidden');
+      }
+      tabLogin.addEventListener('click', () => setAuthMode('login'));
+      tabRegister.addEventListener('click', () => setAuthMode('register'));
+
+      authSubmit.addEventListener('click', handleAuth);
+      authPassword.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleAuth(); });
+
+      async function handleAuth() {
+        const email = authEmail.value.trim().toLowerCase();
+        const password = authPassword.value;
+        authError.classList.add('hidden');
+        authInfo.classList.add('hidden');
+
+        if (!email.includes('@')) return showAuthError('Escribe un correo válido.');
+        if (password.length < 6) return showAuthError('La contraseña debe tener al menos 6 caracteres.');
+
+        authSubmit.disabled = true;
+        authSubmit.textContent = 'Procesando…';
+        try {
+          currentUser = USE_SUPABASE
+            ? await sbAuth(email, password, authMode === 'register')
+            : (authMode === 'register' ? await localRegister(email, password) : await localLogin(email, password));
+          await enterApp();
+        } catch (err) {
+          if (err.info) {
+            authInfo.textContent = err.message;
+            authInfo.classList.remove('hidden');
+          } else {
+            showAuthError(err.message || 'No se pudo completar. Intenta de nuevo.');
+          }
+        } finally {
+          authSubmit.disabled = false;
+          setAuthMode(authMode); // restaura texto del botón
+        }
+      }
+      function showAuthError(msg) {
+        authError.textContent = msg;
+        authError.classList.remove('hidden');
+      }
+
+      logoutBtn.addEventListener('click', async () => {
+        if (USE_SUPABASE) await sb.auth.signOut();
+        else localLogout();
+        currentUser = null;
+        history = [];
+        appView.classList.add('hidden');
+        authView.classList.remove('hidden');
+        authPassword.value = '';
+      });
+
+      /* ════════════════════════════════════════════════════════════
+         HISTORIAL
+         ════════════════════════════════════════════════════════════ */
+
+      function localHistoryKey() { return 'aa_history_' + currentUser.email; }
+
+      async function loadHistory() {
+        if (USE_SUPABASE) {
+          const { data, error } = await sb
+            .from('audits')
+            .select('id, hook, platform, vpi, views_low, views_high, created_at')
+            .order('created_at', { ascending: false })
+            .limit(100);
+          history = error ? [] : data;
+        } else {
+          try { history = JSON.parse(localStorage.getItem(localHistoryKey())) || []; }
+          catch (_) { history = []; }
+        }
+        renderHistory();
+        updateUsage();
+      }
+
+      async function saveAudit(entry) {
+        if (USE_SUPABASE) {
+          const { data, error } = await sb
+            .from('audits')
+            .insert({
+              hook: entry.hook, platform: entry.platform, vpi: entry.vpi,
+              views_low: entry.views_low, views_high: entry.views_high,
+            })
+            .select()
+            .single();
+          if (!error && data) history.unshift(data);
+        } else {
+          entry.id = Date.now();
+          entry.created_at = new Date().toISOString();
+          history.unshift(entry);
+          localStorage.setItem(localHistoryKey(), JSON.stringify(history.slice(0, 200)));
+        }
+        renderHistory();
+        updateUsage();
+      }
+
+      async function deleteAudit(id) {
+        if (USE_SUPABASE) await sb.from('audits').delete().eq('id', id);
+        history = history.filter((h) => String(h.id) !== String(id));
+        if (!USE_SUPABASE) localStorage.setItem(localHistoryKey(), JSON.stringify(history));
+        renderHistory();
+      }
+
+      function renderHistory() {
+        historyList.innerHTML = '';
+        historyEmpty.classList.toggle('hidden', history.length > 0);
+
+        history.forEach((h) => {
+          const date = new Date(h.created_at).toLocaleDateString('es-PE', {
+            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+          });
+          const card = document.createElement('div');
+          card.className = 'glass rounded-2xl p-5 flex items-start gap-4';
+          card.innerHTML =
+            '<div class="shrink-0 w-14 h-14 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center">' +
+              '<span class="font-display font-bold text-lg score-gradient">' + h.vpi + '%</span>' +
+            '</div>' +
+            '<div class="flex-1 min-w-0">' +
+              '<p class="text-white/85 text-sm font-medium truncate">"' + escapeHtml(h.hook) + '"</p>' +
+              '<p class="text-white/35 text-xs font-mono mt-1">' +
+                (PLATFORMS[h.platform] ? PLATFORMS[h.platform].label : h.platform) +
+                ' · ' + formatViews(h.views_low) + '—' + formatViews(h.views_high) + ' vistas · ' + date +
+              '</p>' +
+            '</div>' +
+            '<button data-del="' + h.id + '" class="shrink-0 text-white/25 hover:text-volt transition-colors duration-300 text-sm" aria-label="Eliminar">✕</button>';
+          historyList.appendChild(card);
+        });
+
+        historyList.querySelectorAll('[data-del]').forEach((btn) => {
+          btn.addEventListener('click', () => deleteAudit(btn.dataset.del));
+        });
+      }
+
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, (c) => ({
+          '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        }[c]));
+      }
+
+      /* ════════════════════════════════════════════════════════════
+         LÍMITE FREEMIUM
+         ════════════════════════════════════════════════════════════ */
+
+      function auditsToday() {
+        const today = new Date().toDateString();
+        return history.filter((h) => new Date(h.created_at).toDateString() === today).length;
+      }
+
+      function updateUsage() {
+        if (currentUser && currentUser.isPro) {
+          usageBar.classList.add('hidden');
+          planBadge.classList.remove('hidden');
+          return;
+        }
+        usageBar.classList.remove('hidden');
+        planBadge.classList.add('hidden');
+        usageCount.textContent = Math.min(auditsToday(), CONFIG.FREE_DAILY_LIMIT) + ' / ' + CONFIG.FREE_DAILY_LIMIT;
+      }
+
+      function limitReached() {
+        return !(currentUser && currentUser.isPro) && auditsToday() >= CONFIG.FREE_DAILY_LIMIT;
+      }
+
+      paywallClose.addEventListener('click', () => paywallModal.classList.add('hidden'));
+      $('goProSmall').addEventListener('click', () => paywallModal.classList.remove('hidden'));
+
+      $('activateLicense').addEventListener('click', () => {
+        const key = prompt('Ingresa tu clave de licencia:');
+        if (key && key.trim() === CONFIG.LOCAL_LICENSE_KEY) {
+          if (!USE_SUPABASE) localSetPro(currentUser.email);
+          currentUser.isPro = true;
+          paywallModal.classList.add('hidden');
+          updateUsage();
+          alert('✓ Plan Pro activado. Auditorías ilimitadas desbloqueadas.');
+        } else if (key) {
+          alert('Clave inválida. Revisa el correo de tu compra.');
+        }
+      });
+
+      /* ════════════════════════════════════════════════════════════
+         NAVEGACIÓN DE TABS
+         ════════════════════════════════════════════════════════════ */
+      tabAudit.addEventListener('click', () => switchTab('audit'));
+      tabHistory.addEventListener('click', () => switchTab('history'));
+      function switchTab(tab) {
+        tabAudit.classList.toggle('active', tab === 'audit');
+        tabHistory.classList.toggle('active', tab === 'history');
+        auditTab.classList.toggle('hidden', tab !== 'audit');
+        historyTab.classList.toggle('hidden', tab !== 'history');
+      }
+
+      /* ════════════════════════════════════════════════════════════
+         MOTOR DE AUDITORÍA (igual que v1)
+         ════════════════════════════════════════════════════════════ */
+
+      Object.values(sliders).forEach(({ input, out }) => {
+        const paint = () => {
+          out.textContent = input.value;
+          input.style.setProperty('--fill', input.value + '%');
+        };
+        input.addEventListener('input', paint);
+        paint();
+      });
+
+      document.querySelectorAll('.platform-chip').forEach((chip) => {
+        chip.addEventListener('click', () => {
+          document.querySelectorAll('.platform-chip').forEach((c) => {
+            c.classList.remove('active');
+            c.setAttribute('aria-checked', 'false');
+          });
+          chip.classList.add('active');
+          chip.setAttribute('aria-checked', 'true');
+          selectedPlatform = chip.dataset.platform;
+        });
+      });
+
+      function analyzeHookText(text) {
+        const t = text.toLowerCase().trim();
+        let score = 40;
+        const len = t.length;
+        if (len >= 30 && len <= 80) score += 18;
+        else if (len >= 15 && len < 30) score += 10;
+        else if (len > 80 && len <= 120) score += 8;
+        else score += 2;
+
+        let powerHits = 0;
+        POWER_WORDS.forEach((w) => { if (t.includes(w)) powerHits++; });
+        score += Math.min(powerHits * 6, 24);
+
+        if (t.includes('?') || t.includes('¿')) score += 8;
+        if (/\d/.test(t)) score += 6;
+
+        const capsRatio = (text.replace(/[^A-ZÁÉÍÓÚÑ]/g, '').length) / Math.max(text.length, 1);
+        if (capsRatio > 0.5) score -= 12;
+
+        return Math.max(5, Math.min(100, score));
+      }
+
+      function seededVariance(text) {
+        let h = 0;
+        for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) >>> 0;
+        return (h % 9) - 4;
+      }
+
+      function computeVPI(hookText) {
+        const sHook = Number(sliders.hook.input.value);
+        const sCur = Number(sliders.curiosity.input.value);
+        const sVal = Number(sliders.value.input.value);
+        const textScore = analyzeHookText(hookText);
+        const sliderScore = sHook * 0.40 + sCur * 0.35 + sVal * 0.25;
+        let vpi = sliderScore * 0.65 + textScore * 0.35 + seededVariance(hookText);
+        vpi = Math.round(Math.max(3, Math.min(99, vpi)));
+        return { vpi, sHook, sCur, sVal };
+      }
+
+      function estimateViews(vpi, platform) {
+        const reach = PLATFORMS[platform].reach;
+        const base = Math.pow(vpi / 10, 3.4) * 120 * reach;
+        return [Math.max(Math.round(base * 0.55), 150), Math.max(Math.round(base * 1.9), 600)];
+      }
+
+      function formatViews(n) {
+        if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace('.0', '') + 'M';
+        if (n >= 1_000) return (n / 1_000).toFixed(1).replace('.0', '') + 'K';
+        return String(n);
+      }
+
+      function verdictFor(vpi) {
+        if (vpi >= 85) return 'Potencial explosivo';
+        if (vpi >= 70) return 'Alta tracción';
+        if (vpi >= 50) return 'Zona competitiva';
+        if (vpi >= 30) return 'Necesita más gancho';
+        return 'Reformula antes de publicar';
+      }
+
+      function animateCount(el, target, suffix, duration) {
+        const start = performance.now();
+        function frame(now) {
+          const p = Math.min((now - start) / duration, 1);
+          const eased = 1 - Math.pow(1 - p, 3);
+          el.textContent = Math.round(target * eased) + suffix;
+          if (p < 1) requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+      }
+
+      function renderResult(result, hookText) {
+        const { vpi, sHook, sCur, sVal } = result;
+        const [low, high] = estimateViews(vpi, selectedPlatform);
+
+        resultPanel.classList.remove('hidden');
+        resultPanel.classList.add('fade-in-up');
+
+        requestAnimationFrame(() => {
+          gaugeArc.style.strokeDashoffset = String(CIRCUMFERENCE * (1 - vpi / 100));
+        });
+        animateCount(scoreValue, vpi, '%', 1600);
+        scoreVerdict.textContent = verdictFor(vpi);
+
+        viewsRange.textContent = formatViews(low) + ' — ' + formatViews(high) + ' vistas';
+        platformLabel.textContent = 'Simulación para ' + PLATFORMS[selectedPlatform].label;
+
+        setTimeout(() => {
+          $('barHook').style.width = sHook + '%';
+          $('barCuriosity').style.width = sCur + '%';
+          $('barValue').style.width = sVal + '%';
+          $('barHookVal').textContent = sHook;
+          $('barCuriosityVal').textContent = sCur;
+          $('barValueVal').textContent = sVal;
+        }, 250);
+
+        copyBtn.dataset.payload = [
+          '⚡ ALGO-AUDIT · Viral Potential Index',
+          '',
+          '🎬 Gancho: "' + hookText + '"',
+          '📱 Plataforma: ' + PLATFORMS[selectedPlatform].label,
+          '',
+          '🔥 VPI: ' + vpi + '% — ' + verdictFor(vpi),
+          '👁 Vistas estimadas: ' + formatViews(low) + ' — ' + formatViews(high),
+          '',
+          'Audita tu gancho antes de publicar 👉 ALGO-AUDIT',
+        ].join('\n');
+
+        // Guardar en historial
+        saveAudit({
+          hook: hookText,
+          platform: selectedPlatform,
+          vpi: vpi,
+          views_low: low,
+          views_high: high,
+        });
+
+        resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+
+      function runAnalysis() {
+        if (isAnalyzing) return;
+
+        if (limitReached()) {
+          paywallModal.classList.remove('hidden');
+          return;
+        }
+
+        const hookText = hookInput.value.trim();
+        if (!hookText) {
+          hookError.classList.remove('hidden');
+          hookInput.focus();
+          return;
+        }
+        hookError.classList.add('hidden');
+
+        isAnalyzing = true;
+        analyzeBtn.disabled = true;
+        analyzeBtn.classList.add('opacity-60');
+        resultPanel.classList.add('hidden');
+        analysisPanel.classList.remove('hidden');
+        analysisPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        steps.forEach((s) => { s.classList.remove('text-cyber'); s.classList.add('text-white/30'); });
+
+        const STEP_MS = 620;
+        steps.forEach((step, i) => {
+          setTimeout(() => {
+            step.classList.remove('text-white/30');
+            step.classList.add('text-cyber');
+          }, STEP_MS * (i + 1));
+        });
+
+        const result = computeVPI(hookText);
+
+        setTimeout(() => {
+          analysisPanel.classList.add('hidden');
+          renderResult(result, hookText);
+          isAnalyzing = false;
+          analyzeBtn.disabled = false;
+          analyzeBtn.classList.remove('opacity-60');
+        }, STEP_MS * (steps.length + 1) + 200);
+      }
+
+      analyzeBtn.addEventListener('click', runAnalysis);
+      hookInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); runAnalysis(); }
+      });
+
+      copyBtn.addEventListener('click', async () => {
+        const payload = copyBtn.dataset.payload || '';
+        try {
+          await navigator.clipboard.writeText(payload);
+        } catch (_) {
+          const ta = document.createElement('textarea');
+          ta.value = payload;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        copyFeedback.classList.remove('hidden');
+        setTimeout(() => copyFeedback.classList.add('hidden'), 2600);
+      });
+
+      /* ════════════════════════════════════════════════════════════
+         ARRANQUE
+         ════════════════════════════════════════════════════════════ */
+      async function enterApp() {
+        authView.classList.add('hidden');
+        appView.classList.remove('hidden');
+        userEmail.textContent = currentUser.email;
+        await loadHistory();
+        switchTab('audit');
+      }
+
+      (async function init() {
+        currentUser = USE_SUPABASE ? await sbRestoreSession() : localRestoreSession();
+        if (currentUser) await enterApp();
+        else authView.classList.remove('hidden');
+      })();
+    })();
+  </script>
+</body>
+</html>
